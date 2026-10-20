@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#153b5b">
+  <meta name="description" content="Fergekart Norge med ferjekaier, samband og kommende avganger.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Fergekart">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <title>Fergekart Norge</title>
+
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icon.svg">
+
+  <link rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      font-family: Arial, sans-serif;
+      color: #202938;
+      background: #f3f6f9;
+    }
+
+    body {
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+      background: #153b5b;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    header h1 {
+      margin: 0 0 5px;
+      font-size: 23px;
+    }
+
+    header p {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.4;
+      color: #dce8f1;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      background: white;
+      border-bottom: 1px solid #d9e0e7;
+      flex-shrink: 0;
+    }
+
+    input[type="search"] {
+      flex: 1;
+      min-width: 180px;
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #b8c5d1;
+      border-radius: 8px;
+      font-size: 16px;
+      background: white;
+      color: #202938;
+      appearance: none;
+    }
+
+    button {
+      min-height: 42px;
+      padding: 10px 13px;
+      border: 0;
+      border-radius: 8px;
+      background: #1769aa;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+      touch-action: manipulation;
+    }
+
+    button:hover {
+      background: #105487;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+
+    label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      min-height: 36px;
+    }
+
+    label input {
+      width: 18px;
+      height: 18px;
+    }
+
+    #status {
+      padding: 10px 13px;
+      background: #eaf0f5;
+      font-size: 13px;
+      line-height: 1.6;
+      flex-shrink: 0;
+    }
+
+    #map {
+      width: 100%;
+      height: 60vh;
+      height: 60dvh;
+      min-height: 300px;
+      flex: 1 0 300px;
+      z-index: 1;
+    }
+
+    .note {
+      padding: 9px 13px calc(9px + env(safe-area-inset-bottom));
+      background: white;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #526171;
+      flex-shrink: 0;
+    }
+
+    .dock-icon {
+      background: white;
+      border: 2px solid #1769aa;
+      border-radius: 50%;
+      text-align: center;
+      color: #1769aa;
+      font-weight: bold;
+      line-height: 22px;
+    }
+
+    .departure-box {
+      min-width: 220px;
+      max-width: 320px;
+      margin-top: 10px;
+      border-top: 1px solid #d9e0e7;
+      padding-top: 9px;
+    }
+
+    .departure-heading {
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 8px;
+      color: #153b5b;
+    }
+
+    .departure-item {
+      padding: 9px 0;
+      border-bottom: 1px solid #edf0f3;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .departure-time {
+      display: inline-block;
+      min-width: 48px;
+      font-weight: bold;
+      color: #153b5b;
+    }
+
+    .departure-destination {
+      font-weight: 600;
+    }
+
+    .departure-detail {
+      display: block;
+      margin-left: 48px;
+      color: #64748b;
+      font-size: 12px;
+    }
+
+    .departure-cancelled {
+      color: #b42318;
+      font-weight: bold;
+    }
+
+    .departure-message {
+      font-size: 12px;
+      line-height: 1.5;
+      color: #526171;
+    }
+
+    .departure-refresh {
+      margin-top: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+
+    .location-marker {
+      width: 22px;
+      height: 22px;
+      border: 3px solid #ffffff;
+      border-radius: 50%;
+      background: #1677ff;
+      box-shadow: 0 0 0 2px #1677ff, 0 1px 6px rgba(0, 0, 0, 0.45);
+    }
+
+    /* Mobiltilpasning */
+    @media (max-width: 600px) {
+      header h1 {
+        font-size: 21px;
+      }
+
+      .toolbar {
+        gap: 8px;
+        padding: 10px;
+      }
+
+      input[type="search"] {
+        flex-basis: 100%;
+        min-width: 0;
+      }
+
+      .toolbar label {
+        flex: 1;
+        font-size: 13px;
+      }
+
+      .toolbar button {
+        font-size: 13px;
+        padding: 10px;
+      }
+
+      #status {
+        font-size: 12px;
+        padding: 8px 10px;
+      }
+
+      #map {
+        height: 55dvh;
+        min-height: 280px;
+      }
+
+      .note {
+        font-size: 11px;
+      }
+
+      .leaflet-popup-content {
+        max-width: calc(100vw - 80px);
+      }
+
+      .departure-box {
+        min-width: 0;
+        max-width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Fergekart Norge</h1>
+    <p>Ferjekaier og ferjesamband fra Nasjonal vegdatabank (NVDB)</p>
+  </header>
+
+  <div class="toolbar">
+    <input id="search" type="search"
+           placeholder="Søk etter fergekai eller sted..."
+           aria-label="Søk etter fergekai">
+
+    <button id="myLocation" type="button">📍 Min posisjon</button>
+
+    <label>
+      <input id="showLines" type="checkbox" checked>
+      Vis sambandslinjer
+    </label>
+
+    <button id="reload">Hent data på nytt</button>
+  </div>
+
+  <div id="status">Klargjør kartet …</div>
+  <div id="map"></div>
+
+  <div class="note">
+    Kartdata: OpenStreetMap. Ferjekaier og samband: NVDB / Statens vegvesen.
+    Avgangsinformasjon: Entur, når tilgjengelig. Posisjonen din brukes bare i nettleseren.
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    const API_BASE =
+      "https://nvdbapiles.atlas.vegvesen.no/vegobjekter/api/v4/vegobjekter";
+
+    const ENTUR_API =
+      "https://api.entur.io/journey-planner/v3/graphql";
+
+    const ENTUR_CLIENT_NAME = "fergekart-norge-app";
+
+    const KAI_TYPE = 64;
+    const SAMBAND_TYPE = 770;
+
+    const map = L.map("map").setView([64.5, 12], 5);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap-bidragsytere"
+    }).addTo(map);
+
+    const markerLayer = L.layerGroup().addTo(map);
+    const lineLayer = L.layerGroup().addTo(map);
+    const userLocationLayer = L.layerGroup().addTo(map);
+
+    let userLocationMarker = null;
+    let userAccuracyCircle = null;
+
+    let activeDocks = [];
+    let serviceGroups = [];
+    let allDockCount = 0;
+    let activeDockCount = 0;
+    let serviceCount = 0;
+
+    const departureCache = new Map();
+
+    const statusEl = document.getElementById("status");
+    const searchEl = document.getElementById("search");
+    const showLinesEl = document.getElementById("showLines");
+    const myLocationButton = document.getElementById("myLocation");
+
+    function setStatus(message) {
+      statusEl.textContent = message;
+    }
+
+    function showMyLocation() {
+      if (!("geolocation" in navigator)) {
+        setStatus("Denne nettleseren støtter ikke posisjonstjenester.");
+        return;
+      }
+
+      if (!window.isSecureContext) {
+        setStatus("Posisjon krever en sikker HTTPS-forbindelse. Åpne den publiserte GitHub Pages-lenken.");
+        return;
+      }
+
+      myLocationButton.disabled = true;
+      myLocationButton.textContent = "Henter posisjon …";
+      setStatus("Ber om posisjonen din. Tillat posisjonstilgang hvis nettleseren spør.");
+
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          const accuracy = position.coords.accuracy;
+
+          userLocationLayer.clearLayers();
+
+          userLocationMarker = L.marker([lat, lon], {
+            icon: L.divIcon({
+              className: "",
+              html: '<div class="location-marker" aria-label="Din posisjon"></div>',
+              iconSize: [22, 22],
+              iconAnchor: [11, 11]
+            }),
+            title: "Din posisjon",
+            zIndexOffset: 1000
+          }).addTo(userLocationLayer);
+
+          userLocationMarker.bindPopup(
+            `<strong>Du er her</strong><br>` +
+            `Omtrentlig nøyaktighet: ${Math.round(accuracy)} meter`
+          ).openPopup();
+
+          userAccuracyCircle = L.circle([lat, lon], {
+            radius: accuracy,
+            color: "#1677ff",
+            weight: 1,
+            opacity: 0.65,
+            fillColor: "#1677ff",
+            fillOpacity: 0.10,
+            interactive: false
+          }).addTo(userLocationLayer);
+
+          map.setView([lat, lon], 15);
+          setStatus(
+            `Posisjonen din vises med blå prikk. ` +
+            `Nøyaktighet omtrent ${Math.round(accuracy)} meter.`
+          );
+
+          myLocationButton.disabled = false;
+          myLocationButton.textContent = "📍 Min posisjon";
+        },
+        error => {
+          let message;
+
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              message = "Posisjonstilgang er avslått. Tillat posisjon for denne nettsiden i nettleserens innstillinger, og prøv igjen.";
+              break;
+            case error.POSITION_UNAVAILABLE:
+              message = "Posisjonen kunne ikke fastslås. Kontroller at posisjonstjenester er slått på på enheten.";
+              break;
+            case error.TIMEOUT:
+              message = "Det tok for lang tid å finne posisjonen. Prøv igjen.";
+              break;
+            default:
+              message = "En ukjent feil oppstod da posisjonen skulle hentes.";
+          }
+
+          setStatus(message);
+          myLocationButton.disabled = false;
+          myLocationButton.textContent = "📍 Min posisjon";
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 30000
+        }
+      );
+    }
+
+    function getTypeId(relation) {
+      const value = relation?.type?.id ??
+                    relation?.vegobjekttype?.id ??
+                    relation?.objekttype?.id;
+
+      const id = Number(value);
+      return Number.isFinite(id) ? id : null;
+    }
+
+    function getRelatedObjectIds(relation) {
+      const result = [];
+
+      function add(value) {
+        if (value === null || value === undefined) return;
+
+        const id = Number(value);
+
+        if (Number.isSafeInteger(id) && id > 0) {
+          result.push(id);
+        }
+      }
+
+      if (Array.isArray(relation?.vegobjekter)) {
+        relation.vegobjekter.forEach(add);
+      }
+
+      if (Array.isArray(relation?.vegobjektIder)) {
+        relation.vegobjektIder.forEach(add);
+      }
+
+      if (Array.isArray(relation?.vegobjektider)) {
+        relation.vegobjektider.forEach(add);
+      }
+
+      return [...new Set(result)];
+    }
+
+    function getLinkedIds(object, relationDirection, wantedType, knownIds) {
+      const relations = object?.relasjoner?.[relationDirection];
+
+      if (!Array.isArray(relations)) return [];
+
+      const result = new Set();
+
+      for (const relation of relations) {
+        if (getTypeId(relation) !== wantedType) continue;
+
+        for (const id of getRelatedObjectIds(relation)) {
+          if (knownIds.has(id)) result.add(id);
+        }
+      }
+
+      return [...result];
+    }
+
+    function getProperties(object) {
+      const result = {};
+      const props = object?.egenskaper;
+
+      if (Array.isArray(props)) {
+        for (const prop of props) {
+          const name = String(prop?.navn || "").trim().toLowerCase();
+          if (name) result[name] = prop.verdi;
+        }
+      } else if (props && typeof props === "object") {
+        for (const [key, value] of Object.entries(props)) {
+          result[key.toLowerCase()] =
+            value && typeof value === "object" && "verdi" in value
+              ? value.verdi
+              : value;
+        }
+      }
+
+      return result;
+    }
+
+    function getProperty(object, names) {
+      const properties = getProperties(object);
+
+      for (const name of names) {
+        const key = name.toLowerCase();
+
+        if (properties[key] !== undefined &&
+            properties[key] !== null) {
+          return properties[key];
+        }
+      }
+
+      return null;
+    }
+
+    function getName(object, fallback) {
+      return String(
+        getProperty(object, ["Navn", "Ferjekaienavn", "Ferjesambandnavn"]) ||
+        object?.navn ||
+        fallback
+      );
+    }
+
+    function getStatus(object) {
+      return String(
+        getProperty(object, ["Driftsstatus", "Status"]) || ""
+      );
+    }
+
+    function isActive(object) {
+      const status = getStatus(object).toLowerCase();
+
+      return status.includes("trafikkeres") ||
+             status.includes("trafikkert");
+    }
+
+    function getStopPlaceId(object) {
+      const value = getProperty(object, [
+        "NSR_Stopplace_ID",
+        "NSR_StopPlace_ID",
+        "NSR Stopplace ID",
+        "NSR StopPlace ID"
+      ]);
+
+      if (typeof value !== "string") return null;
+
+      const id = value.trim();
+
+      return /^NSR:StopPlace:\d+$/i.test(id) ? id : null;
+    }
+
+    function coordinatesFromWkt(wkt) {
+      if (typeof wkt !== "string") return null;
+
+      const matches = [
+        ...wkt.matchAll(
+          /(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)(?:\s+-?\d+(?:\.\d+)?)?/g
+        )
+      ];
+
+      const points = [];
+
+      for (const match of matches) {
+        const a = Number(match[1]);
+        const b = Number(match[2]);
+
+        let lat;
+        let lon;
+
+        if (a >= 54 && a <= 72 && b >= 3 && b <= 32) {
+          lat = a;
+          lon = b;
+        } else if (b >= 54 && b <= 72 && a >= 3 && a <= 32) {
+          lat = b;
+          lon = a;
+        } else {
+          continue;
+        }
+
+        points.push([lat, lon]);
+      }
+
+      if (!points.length) return null;
+
+      return [
+        points.reduce((sum, p) => sum + p[0], 0) / points.length,
+        points.reduce((sum, p) => sum + p[1], 0) / points.length
+      ];
+    }
+
+    function getCoordinates(object) {
+      const geometry = object?.geometri;
+
+      if (geometry?.wkt) {
+        const coordinates = coordinatesFromWkt(geometry.wkt);
+        if (coordinates) return coordinates;
+      }
+
+      const coordinates = geometry?.coordinates;
+      if (!coordinates) return null;
+
+      const points = [];
+
+      function walk(value) {
+        if (!Array.isArray(value)) return;
+
+        if (typeof value[0] === "number" &&
+            typeof value[1] === "number") {
+          const point = coordinatesFromWkt(
+            `${value[0]} ${value[1]}`
+          );
+
+          if (point) points.push(point);
+          return;
+        }
+
+        value.forEach(walk);
+      }
+
+      walk(coordinates);
+
+      if (!points.length) return null;
+
+      return [
+        points.reduce((sum, p) => sum + p[0], 0) / points.length,
+        points.reduce((sum, p) => sum + p[1], 0) / points.length
+      ];
+    }
+
+    async function fetchType(typeId) {
+      const url =
+        `${API_BASE}/${typeId}?antall=500&srid=4326` +
+        "&inkluder=metadata%2Cegenskaper%2Cgeometri%2Crelasjoner";
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(
+          `NVDB svarte HTTP ${response.status} for objekttype ${typeId}`
+        );
+      }
+
+      const data = await response.json();
+
+      if (Array.isArray(data)) return data;
+
+      return data.objekter ||
+             data.vegobjekter ||
+             data.resultater ||
+             [];
+    }
+
+    function buildServiceGroups(docks, services) {
+      const dockIds = new Set(docks.map(dock => dock.id));
+      const serviceIds = new Set(services.map(service => service.id));
+      const docksById = new Map(docks.map(dock => [dock.id, dock]));
+      const servicesById = new Map(
+        services.map(service => [service.id, service])
+      );
+
+      const groups = new Map();
+
+      function addDockToService(serviceId, dockId) {
+        if (!serviceIds.has(serviceId) || !dockIds.has(dockId)) return;
+
+        if (!groups.has(serviceId)) {
+          groups.set(serviceId, new Set());
+        }
+
+        groups.get(serviceId).add(dockId);
+      }
+
+      for (const dock of docks) {
+        const linkedServices = getLinkedIds(
+          dock.raw, "foreldre", SAMBAND_TYPE, serviceIds
+        );
+
+        for (const serviceId of linkedServices) {
+          addDockToService(serviceId, dock.id);
+        }
+
+        const childServices = getLinkedIds(
+          dock.raw, "barn", SAMBAND_TYPE, serviceIds
+        );
+
+        for (const serviceId of childServices) {
+          addDockToService(serviceId, dock.id);
+        }
+      }
+
+      for (const service of services) {
+        const childDocks = getLinkedIds(
+          service.raw, "barn", KAI_TYPE, dockIds
+        );
+
+        for (const dockId of childDocks) {
+          addDockToService(service.id, dockId);
+        }
+
+        const parentDocks = getLinkedIds(
+          service.raw, "foreldre", KAI_TYPE, dockIds
+        );
+
+        for (const dockId of parentDocks) {
+          addDockToService(service.id, dockId);
+        }
+      }
+
+      const result = [];
+
+      for (const [serviceId, linkedDockIds] of groups) {
+        const service = servicesById.get(serviceId);
+
+        const linkedDocks = [...linkedDockIds]
+          .map(id => docksById.get(id))
+          .filter(dock => dock && dock.coordinates);
+
+        if (linkedDocks.length < 2) continue;
+
+        result.push({
+          id: serviceId,
+          name: getName(service.raw, `Ferjesamband ${serviceId}`),
+          docks: linkedDocks
+        });
+      }
+
+      return result;
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, character => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[character]);
+    }
+
+    function formatTime(value) {
+      if (!value) return "Ukjent";
+
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "Ukjent";
+
+      return new Intl.DateTimeFormat("no-NO", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Europe/Oslo"
+      }).format(date);
+    }
+
+    function departureHtml(message) {
+      return `<div class="departure-message">${escapeHtml(message)}</div>`;
+    }
+
+    function renderDepartures(container, calls) {
+      if (!calls || calls.length === 0) {
+        container.innerHTML = departureHtml(
+          "Ingen kommende avganger ble funnet i Entur akkurat nå."
+        );
+        return;
+      }
+
+      const now = Date.now();
+
+      const upcoming = calls
+        .filter(call => {
+          const time = call.expectedDepartureTime ||
+                       call.aimedDepartureTime;
+          return time && new Date(time).getTime() >= now - 60000;
+        })
+        .sort((a, b) => {
+          const timeA = new Date(
+            a.expectedDepartureTime || a.aimedDepartureTime
+          ).getTime();
+
+          const timeB = new Date(
+            b.expectedDepartureTime || b.aimedDepartureTime
+          ).getTime();
+
+          return timeA - timeB;
+        })
+        .slice(0, 8);
+
+      if (!upcoming.length) {
+        container.innerHTML = departureHtml(
+          "Ingen flere avganger funnet i den hentede rutetabellen."
+        );
+        return;
+      }
+
+      container.innerHTML = upcoming.map(call => {
+        const planned = call.aimedDepartureTime;
+        const expected = call.expectedDepartureTime || planned;
+        const cancelled = call.cancellation === true;
+
+        const destination =
+          call.destinationDisplay?.frontText || "Destinasjon ikke oppgitt";
+
+        const plannedTime = formatTime(planned);
+        const expectedTime = formatTime(expected);
+
+        let detail = "";
+
+        if (cancelled) {
+          detail = '<span class="departure-cancelled">AVLYST</span>';
+        } else if (
+          planned && expected &&
+          Math.abs(new Date(expected) - new Date(planned)) >= 60000
+        ) {
+          detail =
+            `Forventet ${escapeHtml(expectedTime)} ` +
+            `(planlagt ${escapeHtml(plannedTime)})`;
+        } else if (call.realtime === true) {
+          detail = "Sanntidsinformasjon";
+        } else {
+          detail = "Ruteført avgang";
+        }
+
+        const displayTime = cancelled ? plannedTime : expectedTime;
+
+        return `
+          <div class="departure-item">
+            <span class="departure-time">${escapeHtml(displayTime)}</span>
+            <span class="departure-destination">
+              ${escapeHtml(destination)}
+            </span>
+            <span class="departure-detail">${detail}</span>
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function fetchDepartures(stopPlaceId) {
+      const query = `
+        query ($id: String!, $numberOfDepartures: Int!, $timeRange: Int!) {
+          stopPlace(id: $id) {
+            id
+            name
+            estimatedCalls(
+              numberOfDepartures: $numberOfDepartures
+              timeRange: $timeRange
+            ) {
+              aimedDepartureTime
+              expectedDepartureTime
+              realtime
+              cancellation
+              destinationDisplay {
+                frontText
+              }
+            }
+          }
+        }
+      `;
+
+      const response = await fetch(ENTUR_API, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "ET-Client-Name": ENTUR_CLIENT_NAME
+        },
+        body: JSON.stringify({
+          query,
+          variables: {
+            id: stopPlaceId,
+            numberOfDepartures: 20,
+            timeRange: 86400
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Entur svarte HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.errors?.length) {
+        throw new Error(
+          result.errors.map(error => error.message).join("; ")
+        );
+      }
+
+      const stopPlace = result.data?.stopPlace;
+
+      if (!stopPlace) {
+        return { name: null, calls: [] };
+      }
+
+      return {
+        name: stopPlace.name || null,
+        calls: stopPlace.estimatedCalls || []
+      };
+    }
+
+    async function loadDepartures(dock, marker, forceRefresh = false) {
+      const popup = marker.getPopup();
+      const popupElement = popup?.getElement();
+
+      if (!popupElement) return;
+
+      const container = popupElement.querySelector(
+        `#departures-${dock.id}`
+      );
+
+      if (!container) return;
+
+      if (!dock.stopPlaceId) {
+        container.innerHTML = departureHtml(
+          "Denne kaia mangler en kjent Entur-stoppesteds-ID i NVDB. " +
+          "Avgangstider kan derfor ikke kobles automatisk ennå."
+        );
+        return;
+      }
+
+      if (forceRefresh) {
+        departureCache.delete(dock.stopPlaceId);
+      }
+
+      container.innerHTML = departureHtml("Henter avganger fra Entur …");
+
+      try {
+        let data = departureCache.get(dock.stopPlaceId);
+
+        if (!data) {
+          data = await fetchDepartures(dock.stopPlaceId);
+          departureCache.set(dock.stopPlaceId, data);
+        }
+
+        const currentElement = marker.getPopup()?.getElement();
+        const currentContainer = currentElement?.querySelector(
+          `#departures-${dock.id}`
+        );
+
+        if (!currentContainer) return;
+
+        if (data.name) {
+          const title = currentElement.querySelector(
+            `#departure-title-${dock.id}`
+          );
+
+          if (title) {
+            title.textContent = `Kommende avganger – ${data.name}`;
+          }
+        }
+
+        renderDepartures(currentContainer, data.calls);
+      } catch (error) {
+        console.error("Feil ved henting av avganger:", error);
+
+        const currentElement = marker.getPopup()?.getElement();
+        const currentContainer = currentElement?.querySelector(
+          `#departures-${dock.id}`
+        );
+
+        if (currentContainer) {
+          currentContainer.innerHTML = departureHtml(
+            "Kunne ikke hente avganger fra Entur. " +
+            "Kontroller nettforbindelsen og prøv å oppdatere."
+          );
+        }
+      }
+    }
+
+    function render() {
+      markerLayer.clearLayers();
+      lineLayer.clearLayers();
+
+      const query = searchEl.value.trim().toLocaleLowerCase("no");
+
+      const visibleDocks = activeDocks.filter(dock =>
+        dock.name.toLocaleLowerCase("no").includes(query)
+      );
+
+      for (const dock of visibleDocks) {
+        const marker = L.marker(dock.coordinates, {
+          icon: L.divIcon({
+            className: "",
+            html:
+              '<div class="dock-icon" ' +
+              'style="width:22px;height:22px">F</div>',
+            iconSize: [22, 22],
+            iconAnchor: [11, 11]
+          })
+        });
+
+        const names = serviceGroups
+          .filter(group => group.docks.some(item => item.id === dock.id))
+          .map(group => group.name);
+
+        const serviceText = names.length
+          ? names.join(", ")
+          : "Ingen bekreftet sambandskobling";
+
+        const popupContent = `
+          <div>
+            <strong>${escapeHtml(dock.name)}</strong><br>
+            NVDB-ID: ${dock.id}<br>
+            Status: ${escapeHtml(dock.status || "Ukjent")}<br>
+            Samband: ${escapeHtml(serviceText)}
+
+            <div class="departure-box">
+              <div class="departure-heading" id="departure-title-${dock.id}">
+                Kommende avganger
+              </div>
+
+              <div id="departures-${dock.id}" class="departure-message">
+                Klikk på kaia for å hente avgangstider …
+              </div>
+
+              <button
+                type="button"
+                class="departure-refresh"
+                data-refresh-dock="${dock.id}">
+                Oppdater avganger
+              </button>
+            </div>
+          </div>
+        `;
+
+        marker.bindPopup(popupContent, { maxWidth: 340 });
+
+        marker.on("popupopen", () => {
+          loadDepartures(dock, marker);
+        });
+
+        marker.on("popupopen", event => {
+          const element = event.popup.getElement();
+          const refreshButton = element?.querySelector(
+            `[data-refresh-dock="${dock.id}"]`
+          );
+
+          if (refreshButton) {
+            refreshButton.onclick = () => {
+              loadDepartures(dock, marker, true);
+            };
+          }
+        });
+
+        marker.addTo(markerLayer);
+      }
+
+      let linesShown = 0;
+
+      if (showLinesEl.checked) {
+        for (const group of serviceGroups) {
+          const visibleMembers = group.docks.filter(dock =>
+            visibleDocks.some(visible => visible.id === dock.id)
+          );
+
+          if (visibleMembers.length < 2) continue;
+
+          const line = L.polyline(
+            visibleMembers.map(dock => dock.coordinates),
+            {
+              color: "#e07825",
+              weight: 2,
+              opacity: 0.8,
+              dashArray: "6, 6"
+            }
+          );
+
+          line.bindPopup(
+            `<strong>${escapeHtml(group.name)}</strong><br>` +
+            `NVDB-sambands-ID: ${group.id}<br>` +
+            `${visibleMembers.length} kaier`
+          );
+
+          line.addTo(lineLayer);
+          linesShown++;
+        }
+      }
+
+      setStatus(
+        `Kaier hentet fra NVDB: ${allDockCount} | ` +
+        `Aktive kaier med koordinater: ${activeDockCount} | ` +
+        `Vist på kartet: ${visibleDocks.length} | ` +
+        `Ferjesamband hentet: ${serviceCount} | ` +
+        `Samband med minst to kaier: ${serviceGroups.length} | ` +
+        `Sambandslinjer vist: ${linesShown}`
+      );
+    }
+
+    async function loadData() {
+      const reloadButton = document.getElementById("reload");
+      reloadButton.disabled = true;
+
+      setStatus("Henter ferjekaier og ferjesamband fra NVDB …");
+
+      try {
+        const [rawDocks, rawServices] = await Promise.all([
+          fetchType(KAI_TYPE),
+          fetchType(SAMBAND_TYPE)
+        ]);
+
+        allDockCount = rawDocks.length;
+
+        activeDocks = rawDocks
+          .filter(isActive)
+          .map(raw => ({
+            id: Number(raw.id),
+            name: getName(raw, `Ferjekai ${raw.id}`),
+            status: getStatus(raw),
+            coordinates: getCoordinates(raw),
+            stopPlaceId: getStopPlaceId(raw),
+            raw
+          }))
+          .filter(dock =>
+            Number.isSafeInteger(dock.id) &&
+            dock.id > 0 &&
+            dock.coordinates
+          );
+
+        activeDockCount = activeDocks.length;
+
+        const services = rawServices
+          .map(raw => ({
+            id: Number(raw.id),
+            raw
+          }))
+          .filter(service =>
+            Number.isSafeInteger(service.id) &&
+            service.id > 0
+          );
+
+        serviceCount = services.length;
+
+        serviceGroups = buildServiceGroups(activeDocks, services);
+
+        render();
+
+        if (serviceGroups.length === 0) {
+          setStatus(
+            `Kaier hentet fra NVDB: ${allDockCount} | ` +
+            `Aktive kaier med koordinater: ${activeDockCount} | ` +
+            `Ferjesamband hentet: ${serviceCount} | ` +
+            `Ingen samband med minst to bekreftede kaier ble funnet. ` +
+            `Kaiene vises uten sambandslinjer.`
+          );
+        }
+      } catch (error) {
+        console.error("Feil ved lasting av NVDB-data:", error);
+
+        setStatus(
+          "Kunne ikke hente data fra NVDB. Prøv å laste siden på nytt. " +
+          error.message
+        );
+      } finally {
+        reloadButton.disabled = false;
+      }
+    }
+
+    searchEl.addEventListener("input", render);
+    showLinesEl.addEventListener("change", render);
+    document.getElementById("reload").addEventListener("click", loadData);
+    myLocationButton.addEventListener("click", showMyLocation);
+
+    loadData();
+
+    // Service worker registreres bare på HTTPS eller localhost.
+    if ("serviceWorker" in navigator &&
+        (location.protocol === "https:" ||
+         location.hostname === "localhost" ||
+         location.hostname === "127.0.0.1")) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./service-worker.js")
+          .then(() => console.log("Fergekart: service worker registrert"))
+          .catch(error =>
+            console.error("Service worker kunne ikke registreres:", error)
+          );
+      });
+    }
+  </script>
+</body>
+</html>
